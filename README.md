@@ -1,5 +1,6 @@
 # Python_Exercise
  Learning Python with MOOC.
+ Github remote respository: https://github.com/Eric0Zhang/Python_Exercise.git
 # Using Github
  And trying to use github to organize all my recent codes.
  Try to use github with its desktop version, cmd version, and vscode.
