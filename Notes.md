@@ -40,7 +40,45 @@ for name in dir():
 这里`locals`和`globals`返回的是局部变量列表和全局变量列表，用del删除即可，也可以用gc，如果你比较重视内存的话，实际上试验产生的内存占用通常不会太多。
 另外如果你使用的是ipython解释器，还可以使用：reset命令来清除内存变量。reset如果不带参数调用，则通过删除用户定义的所有名称来重置命名空间。
 
-### 2 Python实用函数库
-#### 2.1 FLASK库
+### 2 Python高级编程
+#### 2.1 列表解析 List Comprehension
+列表解析的基本格式如下:
+`[expr for iter_var in iterable if condition]`
+expr是一个表达式, 其后是一个迭代表达式, 迭代表达式后面可选的, 可以加`if`条件语句.
+```python
+def listcycle():
+    data = [2,4,7,1,-10,-4,-1,-8,-4,9]
+    retlist = []
+    for num in data:
+        if num >= 0:
+            retlist.append(num)
+    return retlist
 
-#### 2.2 DJANGO库
+
+#data = [randint(-10,10) for _ in range(10)]
+data = [2,4,7,1,-10,-4,-1,-8,-4,9]
+#基本的按照循环来解析
+cyc = listcycle()
+#按照If的条件,解析列表中的所有元素
+lc = [x for x in data if x>=0]
+
+#计算循环函数的用时
+print('循环耗时:%.3f' % timeit.timeit('listcycle()','from __main__ import listcycle'))
+
+#计算列表解析的时间
+print('列表解析耗时:%.3f' % timeit.timeit('[x for x in data if x>=0]','data = [2,4,7,1,-10,-4,-1,-8,-4,9]'))
+
+```
+可以得到循环的耗时为0.688s, 而列表解析方法的耗时为0.449s. 明显列表解析的效率更高.
+
+同样对于字典也可以有列表解析,包括带条件的和不带条件的:
+```python
+#生成一个1到20学号的随机分数, 这也是一个没有条件语句的字典解析
+dct = {key:randint(70,100) for key in range(1,21)}
+print(dct)
+
+#对整个字典, 进行条件为分数大于90的解析
+high = {key:value for key,value in dct.items() if value>90}
+print(high)
+```
+注意字典在迭代时,使用的是dct.items()方法.
