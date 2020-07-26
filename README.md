@@ -7,3 +7,5 @@
  It's very convinient. Cool enough!
 # Using Markdown
  It seems github doesn't support toc function, it's a pity.
+# About AdvancedPython
+ This Document includes the code from learning 'Python高级编程技巧实战'
