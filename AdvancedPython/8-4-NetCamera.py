@@ -1,9 +1,10 @@
 import os, cv2, time, struct, threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import TCPServer, ThreadingTCPServer
+from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingTCPServer
 from threading import Thread, RLock
 from select import select
 
+# streamer从摄像头采集数据
 class JpegStreamer(Thread):
     def __init__(self, camera):
         Thread.__init__(self)
@@ -23,8 +24,8 @@ class JpegStreamer(Thread):
         self.pipes.pop(pr)
         self.lock.release()
         pr.close()
-        #pw.close()
-        self.pipes[pr].close()
+        pw.close()
+        #self.pipes[pr].close()
 
     def capture(self):
         cap = self.cap
@@ -39,7 +40,8 @@ class JpegStreamer(Thread):
         n = struct.pack('l', len(frame))
         self.lock.acquire()
         if len(self.pipes):
-            _, pipes, _ = select([], self.pipes.itervalues(), [], 1)
+            lst = self.pipes.values()
+            _, pipes, _ = select([], lst, [], 1)
             for pipe in pipes:
                 os.write(pipe, n)
                 os.write(pipe, frame)
@@ -49,6 +51,7 @@ class JpegStreamer(Thread):
         for frame in self.capture():
             self.send(frame)
 
+# retriever生成streamer对象,并从中获取帧
 class JpegRetriever(object):
     def __init__(self, streamer):
         self.streamer = streamer
@@ -108,5 +111,13 @@ if __name__ == '__main__':
     Handler.setJpegRetriever(retriever)
 
     print('Start server...')
-    httpd = ThreadingTCPServer(('127.0.0.1', 9000), Handler)
-    httpd.serve_forever()
+    httpd = ThreadingTCPServer(('', 9000), Handler)
+    httpd.daemon_threads = True
+    threading.Thread(target=httpd.serve_forever, name='httpd', daemon=True).start()
+    #httpd.serve_forever()
+    while True:
+        cmd = input('>>>').strip()
+        if cmd == 'quit':
+            httpd.server_close()
+            break
+        print(threading.enumerate())
