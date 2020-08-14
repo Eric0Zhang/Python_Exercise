@@ -1,8 +1,8 @@
-import os, cv2, time, struct, threading
+import os, cv2, struct, threading
 from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingTCPServer
 from threading import Thread, RLock
-from select import select
+from concurrent.futures import ThreadPoolExecutor
 
 # streamer从摄像头采集数据 继承线程类Thread,它本身就是一个线程,名称叫做JpegStreamer
 class JpegStreamer(Thread):
@@ -27,12 +27,14 @@ class JpegStreamer(Thread):
         return pr
     # 注销管道
     def unregister(self, pr):
+        # 管道没有close方法,应该是自动释放了,后面仔细看一下pipe相关的内容
+        # pr.close()
+        # self.pipes[pr].close()
+
         self.lock.acquire()
         self.pipes.pop(pr)
         self.lock.release()
-        pr.close()
-        #pw.close()
-        self.pipes[pr].close()
+
     # opencv捕捉循环
     def capture(self):
         cap = self.cap
@@ -49,7 +51,7 @@ class JpegStreamer(Thread):
         self.lock.acquire()
         if len(self.pipes):
             lst = self.pipes.values()
-            #_, pipes, _ = select([], lst, [], 1) # 以前用套接字的方法select不知道为什么,python3直接把管道列表迭代即可
+            #_, pipes, _ = select([], lst, [], 1) # select只用用于套接字 不能用于管道
             for pipe in lst:
                 os.write(pipe, n)
                 os.write(pipe, frame)
@@ -123,6 +125,26 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b'Content-Length: %d\r\n\r\n' % len(frame))
         self.wfile.write(frame)
 
+# 改写多线程TCP服务器类,改为线程池创建线程,
+# 重写ThreadingTCPSever的构造器和proces_request方法
+class PoolThreadingTCPServer(ThreadingTCPServer):
+    # ThreadingTCPSever继承TCPSever(TCP服务器)和ThreadingMixIn(TCP访问的线程操作),并且没有本身的方法,所有方法调用这两个基类的
+    # 重构TCPSever的构造函数,增加线程池深度参数,默认最多100个线程
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, max_thread=100):
+        super().__init__(server_address, RequestHandlerClass, bind_and_activate)
+        self.executor = ThreadPoolExecutor(max_thread)
+    def process_request(self, request, client_address):
+        """Start a new thread to process the request."""
+        self.executor.submit(self.process_request_thread, request, client_address)
+        # t = threading.Thread(target = self.process_request_thread,
+        #                     args = (request, client_address))
+        # t.daemon = self.daemon_threads
+        # if not t.daemon and self.block_on_close:
+        #     if self._threads is None:
+        #         self._threads = []
+        #     self._threads.append(t)
+        # t.start()
+
 if __name__ == '__main__':
     # streamer是一个独立的线程,将获取的视频流放入Pipe
     streamer = JpegStreamer(0)
@@ -134,7 +156,8 @@ if __name__ == '__main__':
 
     print('Start server...')
     # 这里的ThreadingTCPServer是一个并发的TCP服务器,多线程实现,因此Handler也会在每个不同线程中重入
-    httpd = ThreadingTCPServer(('192.168.1.128', 9000), Handler)
+    # PoolThreadingTCPSever重写了多线程创建部分,这里指定线程池最大深度是3,这样访问的数量超过三个就会阻塞,等待某个线程释放
+    httpd = PoolThreadingTCPServer(('192.168.1.128', 9000), Handler, max_thread = 3)
     httpd.daemon_threads = True
     threading.Thread(target=httpd.serve_forever, name='httpd', daemon=True).start()
     #httpd.serve_forever()
