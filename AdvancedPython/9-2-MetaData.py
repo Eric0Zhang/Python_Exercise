@@ -1,3 +1,6 @@
+import functools
+
+functools.wraps()
 # inner函数内嵌到outer中,形成闭包,inner捕获的outer变量有name num,他们会随闭包和inner的函数对象一起保存.
 def outer():
     '''this is a closure'''
